@@ -3,38 +3,51 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const config = require('./config');
 
-// Add debugging information
-console.log('MongoDB URI:', config.MONGO_URI);
-console.log('Port:', config.PORT);
-
 const app = express();
 
-// Configure CORS
+// Enhanced CORS for production
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: [
+    'http://localhost:3000',
+    'https://calendar-add-events.netlify.app/' // REPLACE WITH YOUR NETLIFY URL
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type']
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
 
-// Log all requests
+// Request logging
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
 });
 
+// Health check route
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK' });
+});
+
+// Routes
 const eventRoutes = require('./routes/eventRoutes');
 const goalRoutes = require('./routes/goalRoutes');
-
 app.use('/api/events', eventRoutes);
 app.use('/api', goalRoutes);
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
+
+// Database connection
 mongoose.connect(config.MONGO_URI)
   .then(() => {
     console.log('Connected to MongoDB');
-    app.listen(config.PORT || 5000, () => {
-      console.log(`Server running on port ${config.PORT || 5000}`);
+    const PORT = config.PORT || 5000;
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
     });
   })
   .catch(err => {
